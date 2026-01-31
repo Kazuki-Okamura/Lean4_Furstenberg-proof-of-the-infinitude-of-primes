@@ -1,0 +1,7 @@
+/build
+/.lake
+/lake-manifest.json
+.lean/
+/cache/
+/.vscode/
+/.DS_Store
