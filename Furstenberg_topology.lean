@@ -217,58 +217,79 @@ lemma arithprog_inter_contains
     exact this
 
 
-def FurstenbergIsOpen (U : Set ℤ) : Prop :=
-  ∀ x ∈ U,
-    ∃ a b : ℤ, b ≠ 0 ∧
-      x ∈ arithprog a b ∧
-      arithprog a b ⊆ U
+def arithprog_basis : Set (Set ℤ) :=
+  { s | ∃ a b, b ≠ 0 ∧ s = arithprog a b }
 
-def FurstenbergTopology : TopologicalSpace ℤ :=
-{ IsOpen        := FurstenbergIsOpen
-, isOpen_univ  := by
-    intro x hx
-    refine ⟨0, 1, by decide, ?_, ?_⟩
-    · simp [arithprog]
-    · intro y hy; trivial
-, isOpen_inter := by
-    intro U V hU hV x hx
-    rcases hx with ⟨hxU, hxV⟩
-    rcases hU x hxU with ⟨a₁, b₁, hb₁, hx₁, hsub₁⟩
-    rcases hV x hxV with ⟨a₂, b₂, hb₂, hx₂, hsub₂⟩
-    rcases arithprog_inter_contains hb₁ hb₂ hx₁ hx₂
-      with ⟨b, hb, hsubset⟩
-    refine ⟨x, b, hb, ?_, ?_⟩
+
+instance : TopologicalSpace ℤ := TopologicalSpace.generateFrom arithprog_basis
+
+
+lemma arithprog_isOpen_basic {a b : ℤ} (hb : b ≠ 0) : IsOpen (arithprog a b) := by
+  apply TopologicalSpace.GenerateOpen.basic
+  use a, b, hb
+
+
+
+
+theorem is_basis_arithprog : IsTopologicalBasis arithprog_basis := by
+  refine IsTopologicalBasis.mk ?_ ?_ ?_
+
+  · intro t₁ ht₁ t₂ ht₂ x hx
+    rcases ht₁ with ⟨a₁, b₁, hb₁, rfl⟩
+    rcases ht₂ with ⟨a₂, b₂, hb₂, rfl⟩
+    rcases arithprog_inter_contains hb₁ hb₂ hx.1 hx.2 with ⟨b, hb, hsub⟩
+    use arithprog x b
+    constructor
     ·
-      dsimp [arithprog]
-      exact ⟨0, by ring⟩
+      refine ⟨x, b, hb, rfl⟩
     ·
-      intro y hy
-      have h' : y ∈ arithprog a₁ b₁ ∩ arithprog a₂ b₂ :=
-        hsubset hy
-      exact ⟨hsub₁ h'.1, hsub₂ h'.2⟩
-, isOpen_sUnion := by
-    intro S hS x hx
-    rcases Set.mem_sUnion.mp hx with ⟨U, hUS, hxU⟩
-    rcases hS U hUS x hxU with ⟨a, b, hb, hx', hsub⟩
-    refine ⟨a, b, hb, hx', ?_⟩
-    intro y hy
-    exact Set.mem_sUnion.mpr ⟨U, hUS, hsub hy⟩
+      exact ⟨by simp [arithprog], hsub⟩
 
-}
 
-instance : TopologicalSpace ℤ := FurstenbergTopology
+  · ext x
+    simp
+    use arithprog x 1
+    constructor
+    ·
 
-lemma arithprog_isOpen {a b : ℤ} (hb : b ≠ 0) : IsOpen (arithprog a b) := by
-  intro x hx
-  exact ⟨a, b, hb, hx, subset_rfl⟩
+      refine ⟨x, 1, one_ne_zero, rfl⟩
+    ·
+      simp [arithprog]
+
+  ·
+    rfl
+
+
+theorem isOpen_iff_furstenberg {U : Set ℤ} :
+  IsOpen U ↔ ∀ x ∈ U, ∃ a b : ℤ, b ≠ 0 ∧ x ∈ arithprog a b ∧ arithprog a b ⊆ U := by
+  rw [is_basis_arithprog.isOpen_iff]
+  constructor
+  · -- 左 → 右
+    intro h x hx
+    rcases h x hx with ⟨S, ⟨a, b, hb, rfl⟩, hxS, hSU⟩
+    exact ⟨a, b, hb, hxS, hSU⟩
+  · -- 右 → 左
+    intro h x hx
+    rcases h x hx with ⟨a, b, hb, hxa, hsub⟩
+    exact ⟨arithprog a b, ⟨a, b, hb, rfl⟩, hxa, hsub⟩
+
+lemma arithprog_isOpen_new {a b : ℤ} (hb : b ≠ 0) : IsOpen (arithprog a b) := by
+  apply TopologicalSpace.GenerateOpen.basic
+  use a, b, hb
+
 
 theorem Furstenberg_open_infinite
   {U : Set ℤ} (hopen : IsOpen U) (hne : U.Nonempty) :
   Set.Infinite U :=
 by
   rcases hne with ⟨x, hx⟩
-  rcases hopen x hx with ⟨a, b, hb, hx', hsub⟩
-  exact (arithprog_infinite (a := a) (b := b) hb).mono hsub
+
+  rw [is_basis_arithprog.isOpen_iff] at hopen
+
+
+  rcases hopen x hx with ⟨S, ⟨a, b, hb, rfl⟩, hxS, hsub⟩
+
+  exact (arithprog_infinite hb).mono hsub
 
 lemma arithprog_compl_subset {a b : ℤ} (hb : b ≠ 0) :
   (arithprog a b)ᶜ ⊆  ⋃ k ∈ Set.Icc (1 : ℤ) ((Int.natAbs b : ℤ) - 1), arithprog (a + k) b := by
@@ -351,7 +372,7 @@ lemma arithprog_compl_isOpen {a b : ℤ} (hb : b ≠ 0) : IsOpen ((arithprog a b
     with ⟨k, hk, hxk⟩
   refine ⟨arithprog (a + k) b,
     arithprog_shift_subset_compl (a := a) (b := b) (k := k) hb hk,
-    arithprog_isOpen (a := a + k) (b := b) hb,
+    arithprog_isOpen_new (a := a + k) (b := b) hb,
     hxk⟩
 
 
